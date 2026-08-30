@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+
+# captures produites par `jean-claude --record`
+captures/
+
+# artefacts locaux
+*.log
+.DS_Store
+.idea/

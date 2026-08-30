@@ -1,0 +1,69 @@
+{
+  "name": "@etiennepasteur/jean-claude",
+  "version": "0.3.0",
+  "description": "A CLI MITM HTTPS proxy that intercepts and rewrites another tool's API traffic, driven by a YAML file.",
+  "keywords": [
+    "proxy",
+    "mitm",
+    "https",
+    "intercept",
+    "mock",
+    "stub",
+    "api",
+    "cli"
+  ],
+  "license": "MIT",
+  "author": "Etienne Pasteur",
+  "homepage": "https://github.com/EtiennePasteur/jean-claude#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EtiennePasteur/jean-claude.git"
+  },
+  "type": "module",
+  "bin": {
+    "jean-claude": "dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22.21.0 <23 || >=24.5.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "jc": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "commander": "^15.0.0",
+    "execa": "^10.0.1",
+    "mockttp": "^4.6.1",
+    "path-to-regexp": "^8.4.2",
+    "picocolors": "^1.1.1",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.3.0",
+    "eslint": "^10.9.1",
+    "prettier": "^3.9.6",
+    "tsdown": "^0.22.14",
+    "tsx": "^4.23.12",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.68.0",
+    "vitest": "^4.1.11"
+  }
+}
