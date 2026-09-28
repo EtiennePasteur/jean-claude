@@ -18,7 +18,7 @@ messages, docs, commit messages, test names.
 ## Commands
 
 ```bash
-npm test                 # vitest run - 155 tests, ~0.9s
+npm test                 # vitest run - 169 tests, ~0.9s
 npm run test:watch
 npm run typecheck        # tsc --noEmit
 npm run lint             # eslint
@@ -49,6 +49,7 @@ src/
     server.ts         getLocal(), lifecycle, listeners, rule registration
     actions.ts        respond / patch / request -> mockttp callbacks
     match.ts          host/method/path/query -> predicate (mockttp-free, unit tested)
+    listen.ts         binds mockttp to --host (127.0.0.1 by default), proxy URL
   ca/store.ts         CA generation + bundle.pem assembly
   env/
     upstream.ts       reads the inherited HTTPS_PROXY / NODE_EXTRA_CA_CERTS
@@ -93,6 +94,13 @@ Pinned to `mockttp@^4.6.1`. Things that cost time to discover:
   (no `.js` suffix). Used in tests only, to mint the fake upstream's leaf.
 - `additionalTrustedCAs`, not `trustAdditionalCAs`. `proxyConfig` takes
   `{ proxyUrl, noProxy }`.
+- **`start()` takes no listen address**: it ends in a bare `server.listen(port)`,
+  which Node binds to every interface. `proxy/listen.ts` swaps
+  `net.Server.prototype.listen` for the duration of `start()` only, rewriting a
+  call that names a port and no address, then checks the socket it caught and
+  **fails closed** if there is none. `test/integration.spec.ts` asserts the bind,
+  so an upgrade that changes the call shape shows up as a red test, not an open
+  proxy.
 - `tlsPassthrough` is a **server construction** option, so changing it needs a
   restart. `reload()` warns when it changes.
 
@@ -176,6 +184,13 @@ pick up your real config and CA.
   case. Exclusions are opt-in via `noProxy:` and shown in the banner. Do not put
   `127.0.0.1:<port>` there either — clients that ignore the port would exclude
   all of loopback and reintroduce the bug.
+- **The proxy listens on `127.0.0.1`, and `--host` is a flag, never a config
+  key.** Bound to every interface it is an open, TLS-intercepting relay — through
+  the user's upstream proxy too — for anyone on the network. Config discovery
+  walks up from cwd, so a config key would let a repo's own `jean-claude.yaml`
+  expose it. A non-loopback bind warns on stderr, in every mode, `--quiet`
+  included. The URL handed to the child stays `127.0.0.1` for a wildcard bind
+  (not `localhost`: some clients resolve it to `::1` only).
 - **The child is pointed at `bundle.pem`, not at the bare CA.** `SSL_CERT_FILE`
   and `CURL_CA_BUNDLE` _replace_ the trust store instead of adding to it, so the
   bundle is our CA + the system store + any inherited corporate CA.

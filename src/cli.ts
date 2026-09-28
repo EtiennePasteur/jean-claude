@@ -24,6 +24,7 @@ const HOME_DESCRIPTION = 'jean-claude directory: config, stubs, CA, session (def
 interface RawSessionFlags {
   config?: string;
   port?: number;
+  host?: string;
   record?: string;
   home?: string;
   log?: string;
@@ -36,6 +37,7 @@ function toSessionOptions(flags: RawSessionFlags): SessionOptions {
   return {
     config: flags.config,
     port: flags.port,
+    host: flags.host,
     record: flags.record,
     home: flags.home,
     log: flags.log,
@@ -50,6 +52,7 @@ function withSessionFlags(command: Command): Command {
   return command
     .option('-c, --config <path>', 'path to the config file (default: nearest jean-claude.yaml, then the home one)')
     .option('-p, --port <port>', 'port to listen on (default: a free port)', parsePort)
+    .option('--host <address>', 'address to listen on (default: 127.0.0.1, this machine only)')
     .option('-r, --record <dir>', 'write real responses to this directory, ready to reuse as stubs')
     .option('--home <dir>', HOME_DESCRIPTION)
     .option('--log <path|terminal>', "where to write jean-claude's own log (default: a file while `run` has a child)")
@@ -63,7 +66,7 @@ const program = new Command();
 program
   .name('jean-claude')
   .description("MITM HTTPS proxy that rewrites another tool's API traffic, driven by a YAML file.")
-  .version('0.3.0');
+  .version('0.4.0');
 
 withSessionFlags(
   program

@@ -173,8 +173,14 @@ jean-claude ca                 show the certificate store, and how to trust it
 jean-claude init               set up the jean-claude directory: config, stub, CA
 ```
 
-Shared flags: `-c/--config`, `-p/--port`, `-r/--record`, `--home`,
+Shared flags: `-c/--config`, `-p/--port`, `--host`, `-r/--record`, `--home`,
 `--log <path|terminal>`, `-v/--verbose`, `-q/--quiet`, `--no-watch`.
+
+The proxy listens on `127.0.0.1` only. `--host 0.0.0.0`, or the address of one
+interface, opens it to other machines — to intercept a phone or a VM, say — and
+jean-claude warns when it does: anyone who can connect can relay traffic through
+it. This is a flag and not a config key on purpose, so a `jean-claude.yaml`
+picked up from a repo can never expose the proxy to the network.
 
 `run` exits with the child's exit code, so it drops into a CI pipeline
 unchanged. The config is watched and reloaded on save; a config that fails to

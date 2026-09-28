@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import https from 'node:https';
-import type { AddressInfo } from 'node:net';
+import net, { type AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -58,7 +58,10 @@ function request(url: string, agent: https.Agent, method = 'GET', payload?: stri
 }
 
 /** Starts jean-claude in front of the fake upstream, from a raw config object. */
-async function startWith(raw: unknown, options: { record?: string; reporter?: Reporter } = {}): Promise<https.Agent> {
+async function startWith(
+  raw: unknown,
+  options: { record?: string; reporter?: Reporter; host?: string } = {},
+): Promise<https.Agent> {
   const loaded = compile(raw, workDir, path.join(workDir, 'jean-claude.yaml'));
 
   running = await startProxy({
@@ -72,6 +75,7 @@ async function startWith(raw: unknown, options: { record?: string; reporter?: Re
     reporter: options.reporter ?? new Reporter({ verbose: false, quiet: true }),
     recorder: options.record !== undefined ? new Recorder(options.record) : undefined,
     port: undefined,
+    host: options.host,
   });
 
   return new https.Agent({
@@ -79,6 +83,23 @@ async function startWith(raw: unknown, options: { record?: string; reporter?: Re
     ca: ourCaCert,
   });
 }
+
+/** Resolves once a TCP connection to `host:port` succeeds or fails, with the error code if any. */
+function probeConnect(host: string, port: number): Promise<string> {
+  return new Promise((resolve) => {
+    const socket = net.connect({ host, port });
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve('connected');
+    });
+    socket.once('error', (error: NodeJS.ErrnoException) => resolve(error.code ?? error.message));
+  });
+}
+
+/** An address of this machine that other machines could reach, when it has one. */
+const lanAddress = Object.values(os.networkInterfaces())
+  .flat()
+  .find((iface) => iface !== undefined && iface.family === 'IPv4' && !iface.internal)?.address;
 
 function upstreamUrl(pathname: string): string {
   return `https://localhost:${upstreamPort}${pathname}`;
@@ -382,6 +403,32 @@ describe('hot reload', () => {
  * the only trace is a bare `Failed to handle request:` from mockttp naming
  * neither the host nor the request.
  */
+describe('listening address', () => {
+  it('binds loopback only by default', async () => {
+    const agent = await startWith({ rules: [] });
+
+    expect(running?.host).toBe('127.0.0.1');
+    expect(running?.url).toBe(`http://127.0.0.1:${running?.port}`);
+    expect((await request(upstreamUrl('/api/todos'), agent)).status).toBe(200);
+  });
+
+  // The property that matters: a MITM proxy is not handed to the whole network.
+  it.skipIf(lanAddress === undefined)('refuses connections on the network interface by default', async () => {
+    await startWith({ rules: [] });
+
+    expect(await probeConnect(lanAddress!, running!.port)).toBe('ECONNREFUSED');
+  });
+
+  it('binds every interface with --host 0.0.0.0 and still hands out a loopback URL', async () => {
+    const agent = await startWith({ rules: [] }, { host: '0.0.0.0' });
+
+    expect(running?.host).toBe('0.0.0.0');
+    expect(running?.url).toBe(`http://127.0.0.1:${running?.port}`);
+    expect((await request(upstreamUrl('/api/todos'), agent)).status).toBe(200);
+    if (lanAddress !== undefined) expect(await probeConnect(lanAddress, running!.port)).toBe('connected');
+  });
+});
+
 describe('an upstream jean-claude does not trust', () => {
   let stranger: https.Server;
   let strangerPort: number;

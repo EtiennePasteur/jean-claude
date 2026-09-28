@@ -10,12 +10,18 @@ import { nodeSupportsEnvProxy, proxyEnvUnset, proxyEnvVars } from '../env/child.
 import { detectUpstream, inheritedExtraCaCerts, type UpstreamSettings } from '../env/upstream.ts';
 import { Reporter } from '../log/reporter.ts';
 import { Recorder } from '../record/writer.ts';
+import { isLoopback } from '../proxy/listen.ts';
 import { type RunningProxy, startProxy } from '../proxy/server.ts';
 
 /** Options shared by `run` and `start`. */
 export interface SessionOptions {
   config: string | undefined;
   port: number | undefined;
+  /**
+   * `--host`: address to listen on. Deliberately not a config key: discovery
+   * walks up from cwd, so a repo's own file could open the proxy to the network.
+   */
+  host: string | undefined;
   record: string | undefined;
   /** jean-claude directory holding the config, the stubs, the CA and the session file. */
   home: string | undefined;
@@ -101,7 +107,16 @@ export async function openSession(options: SessionOptions): Promise<Session> {
     reporter,
     recorder,
     port: options.port,
+    host: options.host,
   });
+
+  // Not gated by --quiet, and printed in every mode: this one is about exposure.
+  if (!isLoopback(proxy.host)) {
+    reporter.warn(
+      `listening on ${proxy.host}:${proxy.port}, reachable from other machines - ` +
+        'anyone who can connect to it can relay traffic through jean-claude.',
+    );
+  }
 
   const childEnvOptions = {
     proxyUrl: proxy.url,
