@@ -66,7 +66,7 @@ const program = new Command();
 program
   .name('jean-claude')
   .description("MITM HTTPS proxy that rewrites another tool's API traffic, driven by a YAML file.")
-  .version('0.3.0');
+  .version('0.4.0');
 
 withSessionFlags(
   program
