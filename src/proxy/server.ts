@@ -6,6 +6,7 @@ import type { UpstreamSettings } from '../env/upstream.ts';
 import type { Reporter } from '../log/reporter.ts';
 import type { Recorder } from '../record/writer.ts';
 import { type ActionContext, makeBeforeRequest, makeBeforeResponse, makeRespondHandler } from './actions.ts';
+import { DEFAULT_HOST, proxyUrlFor, startListening } from './listen.ts';
 import { factsFromUrl } from './match.ts';
 
 export interface StartProxyOptions {
@@ -18,6 +19,8 @@ export interface StartProxyOptions {
   reporter: Reporter;
   recorder: Recorder | undefined;
   port: number | undefined;
+  /** Address to listen on, loopback when unset. */
+  host: string | undefined;
 }
 
 /** Payload of mockttp's `passthrough-abort` rule event. */
@@ -29,6 +32,8 @@ export interface RunningProxy {
   /** Proxy URL to hand to the target tool. */
   url: string;
   port: number;
+  /** Address the proxy is bound to, as the socket reports it. */
+  host: string;
   /** Swap in a new config without dropping the listening socket. */
   reload: (loaded: LoadedConfig) => Promise<void>;
   stop: () => Promise<void>;
@@ -122,14 +127,14 @@ export async function startProxy(options: StartProxyOptions): Promise<RunningPro
     });
   }
 
-  await proxy.start(options.port ?? loaded.config.port);
+  const host = await startListening(proxy, options.port ?? loaded.config.port, options.host ?? DEFAULT_HOST);
   await attachListeners();
   await registerRules();
 
   return {
-    // 127.0.0.1 rather than localhost: some clients resolve localhost to ::1 only.
-    url: `http://127.0.0.1:${proxy.port}`,
+    url: proxyUrlFor(host, proxy.port),
     port: proxy.port,
+    host,
 
     reload: async (next) => {
       loaded = next;
